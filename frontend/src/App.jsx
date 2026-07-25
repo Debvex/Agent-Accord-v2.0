@@ -172,6 +172,8 @@ export default function App() {
         setUseMockMode={setUseMockMode}
       />
 
+
+
       {/* 3D Visual Stage Canvas - 1v1 Dialectic Stage */}
       <div className="flex-1 h-full relative">
         <Scene
