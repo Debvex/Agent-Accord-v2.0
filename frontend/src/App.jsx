@@ -1,162 +1,199 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import SetupModal from './components/SetupModal'
-import Stage3D from './components/Stage3D'
-import LiveTranscript from './components/LiveTranscript'
-import AccordLedger from './components/AccordLedger'
-import { mockDebateData } from './mockData'
+import React, { useState, useEffect, useRef } from 'react'
+import Scene from './components/Scene'
+import Sidebar from './components/Sidebar'
+import DecisionLedger from './components/DecisionLedger'
+import axios from 'axios';
 
-function App() {
-  const [phase, setPhase] = useState('setup')
-  const [uploadedFile, setUploadedFile] = useState(null)
-  const [role, setRole] = useState('')
-  const [prompt, setPrompt] = useState('')
+export default function App() {
+  const [role, setRole] = useState('CEO of Apex Labs')
+  const [prompt, setPrompt] = useState('Cut R&D by 20% immediately to boost quarterly margins')
+  const [selectedFile, setSelectedFile] = useState(null)
   const [activeSpeaker, setActiveSpeaker] = useState(null)
-  const [transcript, setTranscript] = useState([])
+  const [chatLog, setChatLog] = useState([])
   const [accord, setAccord] = useState(null)
+  const [isRunning, setIsRunning] = useState(false)
   const [useMockMode, setUseMockMode] = useState(false)
-  const mockIntervalRef = useRef(null)
-  const mockIndexRef = useRef(0)
 
-  const handleFileUploaded = (fileData) => {
-    setUploadedFile(fileData)
-  }
+  const eventSourceRef = useRef(null)
 
-  const handleStartDebate = (roleVal, promptVal) => {
-    setRole(roleVal)
-    setPrompt(promptVal)
-    setPhase('debate')
-    setTranscript([])
-    setAccord(null)
-    setActiveSpeaker(null)
-
-    if (useMockMode) {
-      startMockDebate()
-    } else {
-      startLiveDebate(roleVal, promptVal)
-    }
-  }
-
-  const startLiveDebate = async (roleVal, promptVal) => {
-    const params = new URLSearchParams({
-      role: roleVal,
-      prompt: promptVal,
-      file_path: uploadedFile.path
-    })
-
-    const eventSource = new EventSource(`http://localhost:8000/negotiate?${params}`)
-
-    eventSource.onmessage = (event) => {
-      const data = JSON.parse(event.data)
-
-      if (data.type === 'turn') {
-        setActiveSpeaker(data.speaker)
-        setTranscript(prev => [...prev, {
-          speaker: data.speaker,
-          name: data.name,
-          color: data.color,
-          text: data.text,
-          timestamp: new Date().toLocaleTimeString()
-        }])
-      } else if (data.type === 'accord') {
-        setActiveSpeaker(null)
-        setAccord({
-          title: data.title,
-          summary: data.summary
-        })
-        setPhase('accord')
-        eventSource.close()
-      }
-    }
-
-    eventSource.onerror = () => {
-      console.error('SSE connection error')
-      eventSource.close()
-    }
-  }
-
-  const startMockDebate = () => {
-    mockIndexRef.current = 0
-    mockIntervalRef.current = setInterval(() => {
-      if (mockIndexRef.current < mockDebateData.length) {
-        const entry = mockDebateData[mockIndexRef.current]
-
-        if (entry.type === 'turn') {
-          setActiveSpeaker(entry.speaker)
-          setTranscript(prev => [...prev, {
-            speaker: entry.speaker,
-            name: entry.name,
-            color: entry.color,
-            text: entry.text,
-            timestamp: new Date().toLocaleTimeString()
-          }])
-        } else if (entry.type === 'accord') {
-          setActiveSpeaker(null)
-          setAccord({ title: entry.title, summary: entry.summary })
-          setPhase('accord')
-          clearInterval(mockIntervalRef.current)
-        }
-
-        mockIndexRef.current++
-      }
-    }, 4000)
-  }
-
+  // Hackathon Fail-Safe keyboard shortcut (Ctrl + M)
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.ctrlKey && e.key === 'm') {
+      if (e.ctrlKey && e.key.toLowerCase() === 'm') {
         e.preventDefault()
-        setUseMockMode(prev => !prev)
+        setUseMockMode((prev) => !prev)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  useEffect(() => {
-    return () => {
-      if (mockIntervalRef.current) {
-        clearInterval(mockIntervalRef.current)
+  const handleRun = () => {
+    setIsRunning(true)
+    setChatLog([])
+    setAccord(null)
+    setActiveSpeaker(null)
+
+    if (useMockMode) {
+      runMockNegotiation()
+    } else {
+      runLiveSSENegotiation()
+    }
+  }
+
+  // Live SSE Connection to FastAPI backend endpoint
+  const runLiveSSENegotiation = async () => {
+    let filePath = ''
+    if (selectedFile) {
+      try {
+        const formData = new FormData()
+        formData.append('file', selectedFile)
+        const uploadRes = await axios.post('http://localhost:8000/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
+        if (uploadRes.data?.path) {
+          filePath = uploadRes.data.path
+        }
+      } catch (err) {
+        console.warn('Backend file upload failed, continuing with prompt parameters.', err)
       }
     }
-  }, [])
+
+    const url = `http://localhost:8000/negotiate?role=${encodeURIComponent(role)}&prompt=${encodeURIComponent(prompt)}${filePath ? `&file_path=${encodeURIComponent(filePath)}` : ''}`
+    const es = new EventSource(url)
+    eventSourceRef.current = es
+
+    es.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        if (data.type === 'turn') {
+          setActiveSpeaker(data.speaker || data.name)
+          setChatLog((prev) => [...prev, data])
+        } else if (data.type === 'accord') {
+          setAccord(data)
+          setActiveSpeaker(null)
+          setIsRunning(false)
+          es.close()
+        }
+      } catch (err) {
+        console.error('Error parsing SSE payload:', err)
+      }
+    }
+
+    es.onerror = (err) => {
+      console.warn('SSE Error / Backend offline. Falling back to Mock Mode simulation.', err)
+      es.close()
+      runMockNegotiation()
+    }
+  }
+
+  // Local Mock Simulation Engine (1v1 Debate between User Role & Egalitarian Challenger)
+  const runMockNegotiation = () => {
+    const userRoleText = role || 'CEO of Apex Labs'
+    const mockTurns = [
+      {
+        type: 'turn',
+        speaker: userRoleText,
+        roleKey: 'proxy',
+        color: '#38bdf8',
+        text: `As ${userRoleText}, I present our policy directive: '${prompt}'. This initiative is critical for operational efficiency and strategic positioning.`
+      },
+      {
+        type: 'turn',
+        speaker: 'Egalitarian Conscience',
+        roleKey: 'challenger',
+        color: '#f43f5e',
+        text: `Cross-referencing live industry benchmarks and ethical frameworks: abrupt execution of '${prompt}' risks critical talent attrition and partnership SLAs. We must establish safeguard thresholds.`
+      },
+      {
+        type: 'turn',
+        speaker: userRoleText,
+        roleKey: 'proxy',
+        color: '#38bdf8',
+        text: `Acknowledging the market data: we can structure a staged budget re-allocation holding core AI at 55% while maintaining zero engineering layoffs.`
+      },
+      {
+        type: 'turn',
+        speaker: 'Egalitarian Conscience',
+        roleKey: 'challenger',
+        color: '#f43f5e',
+        text: `Synthesizing consensus: The proposed 2-phase restructuring satisfies risk mitigation goals while fulfilling the mandate of ${userRoleText}.`
+      }
+    ]
+
+    let step = 0
+    const interval = setInterval(() => {
+      if (step < mockTurns.length) {
+        const turn = mockTurns[step]
+        setActiveSpeaker(turn.speaker)
+        setChatLog((prev) => [...prev, turn])
+        step++
+      } else {
+        clearInterval(interval)
+        setActiveSpeaker(null)
+        setAccord({
+          title: 'Egalitarian Policy Accord v2.0',
+          summary: `1v1 Dialectic Compromise Reached between ${userRoleText} & Egalitarian Conscience: Budget optimization achieved with zero involuntary layoffs and protected core R&D SLAs.`,
+          resilience_score: 8.9,
+          fairness_score: 9.5
+        })
+        setIsRunning(false)
+      }
+    }, 2400)
+  }
+
+  const handleReset = () => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close()
+    }
+    setIsRunning(false)
+    setActiveSpeaker(null)
+    setChatLog([])
+    setAccord(null)
+  }
 
   return (
-    <div className="w-screen h-screen bg-gray-950 text-white overflow-hidden relative">
-      {phase === 'setup' && (
-        <SetupModal
-          onFileUploaded={handleFileUploaded}
-          onStartDebate={handleStartDebate}
-          uploadedFile={uploadedFile}
-          useMockMode={useMockMode}
-        />
-      )}
+    <div className="flex h-screen w-screen bg-slate-950 overflow-hidden relative">
+      {/* Control Panel Sidebar */}
+      <Sidebar
+        role={role}
+        setRole={setRole}
+        prompt={prompt}
+        setPrompt={setPrompt}
+        selectedFile={selectedFile}
+        setSelectedFile={setSelectedFile}
+        isRunning={isRunning}
+        onRun={handleRun}
+        chatLog={chatLog}
+        useMockMode={useMockMode}
+        setUseMockMode={setUseMockMode}
+      />
 
-      {(phase === 'debate' || phase === 'accord') && (
-        <div className="w-full h-full flex">
-          <div className="flex-1 relative">
-            <Stage3D activeSpeaker={activeSpeaker} phase={phase} />
-            <div className="absolute top-4 left-4 flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-xs text-gray-400 font-mono">
-                {useMockMode ? 'MOCK MODE' : 'LIVE'} — {role}
-              </span>
-            </div>
-          </div>
-          <div className="w-96 border-l border-gray-800/50 flex flex-col">
-            <LiveTranscript transcript={transcript} />
-          </div>
-        </div>
-      )}
-
-      {phase === 'accord' && accord && (
-        <AccordLedger
-          title={accord.title}
-          summary={accord.summary}
-          onClose={() => setPhase('debate')}
+      {/* 3D Visual Stage Canvas - 1v1 Dialectic Stage */}
+      <div className="flex-1 h-full relative">
+        <Scene
+          userRole={role || 'Institutional Advocate'}
+          activeSpeaker={activeSpeaker}
+          hideLabels={Boolean(accord)}
         />
-      )}
+
+        {/* Mock Mode Overlay Indicator Badge */}
+        {useMockMode && (
+          <div className="absolute top-4 right-4 bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 text-xs px-3 py-1.5 rounded-full backdrop-blur-md shadow-lg flex items-center gap-1.5 z-20">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+            Mock Mode Active (Ctrl + M)
+          </div>
+        )}
+      </div>
+
+      {/* Golden Document Decision Ledger Modal */}
+      <DecisionLedger
+        accord={accord}
+        prompt={prompt}
+        chatLog={chatLog}
+        onReset={handleReset}
+      />
     </div>
   )
 }
 
-export default App
