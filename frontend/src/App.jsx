@@ -7,7 +7,7 @@ import axios from 'axios';
 export default function App() {
   const [role, setRole] = useState('CEO of Apex Labs')
   const [prompt, setPrompt] = useState('Cut R&D by 20% immediately to boost quarterly margins')
-  const [selectedFile, setSelectedFile] = useState(null)
+  const [selectedFiles, setSelectedFiles] = useState([])
   const [activeSpeaker, setActiveSpeaker] = useState(null)
   const [chatLog, setChatLog] = useState([])
   const [accord, setAccord] = useState(null)
@@ -44,20 +44,23 @@ export default function App() {
   // Live SSE Connection to FastAPI backend endpoint
   const runLiveSSENegotiation = async () => {
     let filePath = ''
-    if (selectedFile) {
-      try {
-        const formData = new FormData()
-        formData.append('file', selectedFile)
-        const uploadRes = await axios.post('http://localhost:8000/upload', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        })
-        if (uploadRes.data?.path) {
-          filePath = uploadRes.data.path
+    if (selectedFiles && selectedFiles.length > 0) {
+      for (const file of selectedFiles) {
+        try {
+          const formData = new FormData()
+          formData.append('file', file)
+          const uploadRes = await axios.post('http://localhost:8000/upload', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          })
+          if (uploadRes.data?.path && !filePath) {
+            filePath = uploadRes.data.path
+          }
+        } catch (err) {
+          console.warn('Backend file upload failed for file:', file.name, err)
         }
-      } catch (err) {
-        console.warn('Backend file upload failed, continuing with prompt parameters.', err)
       }
     }
+
 
     const url = `http://localhost:8000/negotiate?role=${encodeURIComponent(role)}&prompt=${encodeURIComponent(prompt)}${filePath ? `&file_path=${encodeURIComponent(filePath)}` : ''}`
     const es = new EventSource(url)
@@ -160,8 +163,8 @@ export default function App() {
         setRole={setRole}
         prompt={prompt}
         setPrompt={setPrompt}
-        selectedFile={selectedFile}
-        setSelectedFile={setSelectedFile}
+        selectedFiles={selectedFiles}
+        setSelectedFiles={setSelectedFiles}
         isRunning={isRunning}
         onRun={handleRun}
         chatLog={chatLog}
