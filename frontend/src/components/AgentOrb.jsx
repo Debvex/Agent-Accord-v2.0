@@ -9,6 +9,7 @@ export default function AgentOrb({ position, role, roleKey, color, activeSpeaker
   const shadowGlowRef = useRef()
   const ringAuraRef = useRef()
   const visualizerGroupRef = useRef()
+  
 
   const isBoss = roleKey === 'proxy'
   const isSuggestionist = roleKey === 'challenger'
