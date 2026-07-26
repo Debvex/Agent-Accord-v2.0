@@ -7,7 +7,8 @@ import {
   Shield,
   FileText,
   Activity,
-  MessageSquare
+  MessageSquare,
+  History
 } from 'lucide-react'
 import FileManager from './FileManager'
 
@@ -23,6 +24,7 @@ export default function Sidebar({
   chatLog = [],
   useMockMode,
   setUseMockMode,
+  onOpenHistory
 }) {
   const [activeTab, setActiveTab] = useState('input')
 
@@ -100,6 +102,17 @@ export default function Sidebar({
             {chatLog.length > 0 && (
               <span className="ml-1 h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
             )}
+          </button>
+
+          {/* History Tab */}
+          <button
+            type="button"
+            onClick={onOpenHistory}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold tracking-wide transition-all cursor-pointer text-slate-400 hover:bg-slate-900/60 hover:text-amber-300 border border-transparent hover:border-amber-500/30"
+            title="Open Stored MongoDB History Records (/history)"
+          >
+            <History className="h-3.5 w-3.5 text-amber-400" />
+            <span>History</span>
           </button>
 
         </nav>

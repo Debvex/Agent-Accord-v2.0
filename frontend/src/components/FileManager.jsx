@@ -20,8 +20,6 @@ import {
 // Initial documents list (empty by default)
 const INITIAL_FILES = []
 
-
-
 function formatBytes(bytes, decimals = 1) {
   if (!bytes || bytes === 0) return '0 B'
   const k = 1024

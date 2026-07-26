@@ -2,9 +2,13 @@ import React, { useState, useEffect, useRef } from 'react'
 import Scene from './components/Scene'
 import Sidebar from './components/Sidebar'
 import DecisionLedger from './components/DecisionLedger'
-import axios from 'axios';
+import HistoryPage from './components/HistoryPage'
+import axios from 'axios'
 
 export default function App() {
+  const [currentView, setCurrentView] = useState(
+    window.location.pathname === '/history' ? 'history' : 'app'
+  )
   const [role, setRole] = useState('CEO of Apex Labs')
   const [prompt, setPrompt] = useState('Cut R&D by 20% immediately to boost quarterly margins')
   const [selectedFiles, setSelectedFiles] = useState([])
@@ -15,6 +19,29 @@ export default function App() {
   const [useMockMode, setUseMockMode] = useState(false)
 
   const eventSourceRef = useRef(null)
+
+  // Listen to browser Back/Forward buttons and URL updates
+  useEffect(() => {
+    const handlePopState = () => {
+      if (window.location.pathname === '/history') {
+        setCurrentView('history')
+      } else {
+        setCurrentView('app')
+      }
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
+  const navigateToHistory = () => {
+    window.history.pushState({}, '', '/history')
+    setCurrentView('history')
+  }
+
+  const navigateToApp = () => {
+    window.history.pushState({}, '', '/')
+    setCurrentView('app')
+  }
 
   // Hackathon Fail-Safe keyboard shortcut (Ctrl + M)
   useEffect(() => {
@@ -155,6 +182,10 @@ export default function App() {
     setAccord(null)
   }
 
+  if (currentView === 'history') {
+    return <HistoryPage onBack={navigateToApp} />
+  }
+
   return (
     <div className="flex h-screen w-screen bg-slate-950 overflow-hidden relative">
       {/* Control Panel Sidebar */}
@@ -170,9 +201,8 @@ export default function App() {
         chatLog={chatLog}
         useMockMode={useMockMode}
         setUseMockMode={setUseMockMode}
+        onOpenHistory={navigateToHistory}
       />
-
-
 
       {/* 3D Visual Stage Canvas - 1v1 Dialectic Stage */}
       <div className="flex-1 h-full relative">

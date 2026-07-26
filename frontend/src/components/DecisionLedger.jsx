@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Award,
   ShieldCheck,
@@ -18,14 +18,51 @@ import {
   CheckSquare
 } from 'lucide-react'
 import { jsPDF } from 'jspdf'
+import axios from 'axios'
 
 export default function DecisionLedger({ accord, prompt, chatLog, onReset }) {
   const [copied, setCopied] = useState(false)
   const [activeTab, setActiveTab] = useState('overview') // 'overview' | 'ledger'
+  const [dbSaved, setDbSaved] = useState(false)
+
+  // Automatically save PDF to MongoDB as soon as Accord is generated
+  useEffect(() => {
+    if (!accord) return
+
+    const timer = setTimeout(() => {
+      try {
+        const doc = buildPdfDoc()
+        const safeTitle = (accord.title || 'agent-accord-ledger')
+          .replace(/[^a-z0-9]+/gi, '-')
+          .replace(/^-+|-+$/g, '')
+          .toLowerCase()
+        const pdfBase64 = doc.output('datauristring')
+
+        axios
+          .post('http://localhost:5000/api/history', {
+            title: accord.title || 'Executive Decision Ledger',
+            description: accord.summary || prompt || '',
+            fileName: `${safeTitle || 'agent-accord-ledger'}.pdf`,
+            fileData: pdfBase64
+          })
+          .then((res) => {
+            console.log('PDF auto-saved to MongoDB history successfully:', res.data)
+            setDbSaved(true)
+          })
+          .catch((err) => {
+            console.error('Failed to auto-save PDF to MongoDB history:', err)
+          })
+      } catch (err) {
+        console.error('Error generating PDF for MongoDB auto-save:', err)
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [accord])
 
   if (!accord) return null
 
-  const handleDownload = () => {
+  const buildPdfDoc = () => {
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
@@ -160,12 +197,40 @@ export default function DecisionLedger({ accord, prompt, chatLog, onReset }) {
     doc.setTextColor(148, 163, 184)
     doc.text('AgentAccord v2.0 - Official Auditable Policy Document (PDF)', margin, pageHeight - 10)
 
+    return doc
+  }
+
+  const handleDownload = () => {
+    const doc = buildPdfDoc()
     const safeTitle = (accord.title || 'agent-accord-ledger')
       .replace(/[^a-z0-9]+/gi, '-')
       .replace(/^-+|-+$/g, '')
       .toLowerCase()
 
     doc.save(`${safeTitle || 'agent-accord-ledger'}.pdf`)
+
+    // Also manually save to MongoDB on download click
+    try {
+      const pdfBase64 = doc.output('datauristring')
+      const fileName = `${safeTitle || 'agent-accord-ledger'}.pdf`
+
+      axios
+        .post('http://localhost:5000/api/history', {
+          title: accord.title || 'Executive Decision Ledger',
+          description: accord.summary || prompt || '',
+          fileName: fileName,
+          fileData: pdfBase64
+        })
+        .then((res) => {
+          console.log('PDF saved to MongoDB history successfully:', res.data)
+          setDbSaved(true)
+        })
+        .catch((err) => {
+          console.error('Failed to save PDF to MongoDB history:', err)
+        })
+    } catch (err) {
+      console.error('Error generating PDF data string for MongoDB:', err)
+    }
   }
 
   const handleCopy = () => {
@@ -552,6 +617,11 @@ export default function DecisionLedger({ accord, prompt, chatLog, onReset }) {
           <div className="flex items-center gap-2 text-slate-400 text-xs">
             <Shield className="w-4 h-4 text-emerald-400" />
             <span className="font-mono text-[11px]">Status: Enforceable Golden Policy Signed</span>
+            {dbSaved && (
+              <span className="ml-2 px-2 py-0.5 rounded-md text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 animate-fade-in">
+                ✓ Saved to MongoDB
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
