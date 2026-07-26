@@ -75,20 +75,24 @@ export default function App() {
       for (const file of selectedFiles) {
         try {
           const formData = new FormData()
-          formData.append('file', file)
+          // FileManager stores files as wrapper objects with the actual File in .rawFile
+          const fileToUpload = file.rawFile || file
+          formData.append('file', fileToUpload)
+          console.log('Uploading file:', fileToUpload.name, 'size:', fileToUpload.size)
           const uploadRes = await axios.post('http://localhost:8000/upload', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
           })
+          console.log('Upload response:', uploadRes.data)
           if (uploadRes.data?.path && !filePath) {
             filePath = uploadRes.data.path
           }
         } catch (err) {
-          console.warn('Backend file upload failed for file:', file.name, err)
+          console.error('Backend file upload failed for file:', file.name, err)
         }
       }
     }
 
-
+    console.log('Final filePath for negotiate:', filePath)
     const url = `http://localhost:8000/negotiate?role=${encodeURIComponent(role)}&prompt=${encodeURIComponent(prompt)}${filePath ? `&file_path=${encodeURIComponent(filePath)}` : ''}`
     console.log('Connecting to backend SSE:', url)
     const es = new EventSource(url)

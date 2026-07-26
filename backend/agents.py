@@ -79,6 +79,10 @@ RULES:
 - NEVER concede that external market conditions override internal document constraints.
 - Always frame arguments around institutional survival, legal obligations, and documented policies.
 - Be firm, data-driven (from the document), and unapologetic about institutional authority.
+- NEVER repeat arguments you have already made in previous turns.
+- ALWAYS directly respond to the specific points raised by your opponent in their last message.
+- Each turn must introduce NEW evidence, NEW reasoning, or NEW concessions.
+- If you are responding to a rebuttal, address the specific counter-arguments raised, not your original opening.
 - Keep responses to 2-3 paragraphs maximum."""
 
 def get_challenger_system_prompt(document_text: str) -> str:
@@ -102,6 +106,10 @@ RULES:
 - Frame arguments around fairness, ethics, market competitiveness, and stakeholder well-being.
 - Be objective, data-driven (from web searches), and relentless in pursuing truth.
 - Push for compromise that respects both institutional needs and collective fairness.
+- NEVER repeat arguments you have already made in previous turns.
+- ALWAYS directly respond to the specific points raised by your opponent in their last message.
+- Each turn must introduce NEW evidence, NEW reasoning, or NEW concessions.
+- If you are responding to a rebuttal, address the specific counter-arguments raised, not your original opening.
 - Keep responses to 2-3 paragraphs maximum."""
 
 async def generate_agent_response(
@@ -124,8 +132,13 @@ async def generate_agent_response(
         "content": f"PROPOSAL: '{proposal}'\n\n{task_description}"
     })
     
-    for msg in conversation_history:
-        messages.append(msg)
+    # Convert raw conversation history to proper OpenAI message format
+    # Opponent turns = "user" role, self turns = "assistant" role
+    for turn in conversation_history:
+        if turn["speaker"] == agent_type:
+            messages.append({"role": "assistant", "content": turn["text"]})
+        else:
+            messages.append({"role": "user", "content": f"[{turn['name']}]: {turn['text']}"})
     
     response = client.chat.completions.create(
         model="gpt-4o",
@@ -152,8 +165,12 @@ async def generate_challenger_response_with_search(
         "content": f"PROPOSAL: '{proposal}'\n\n{task_description}\n\nIMPORTANT: Before responding, you MUST perform a web search to fact-check the Proxy's claims. What specific query should you search for?"
     })
     
-    for msg in conversation_history[-4:]:
-        messages.append(msg)
+    # Convert raw conversation history to proper OpenAI message format
+    for turn in conversation_history[-4:]:
+        if turn["speaker"] == "challenger":
+            messages.append({"role": "assistant", "content": turn["text"]})
+        else:
+            messages.append({"role": "user", "content": f"[{turn['name']}]: {turn['text']}"})
     
     search_decision = client.chat.completions.create(
         model="gpt-4o",
@@ -178,8 +195,12 @@ async def generate_challenger_response_with_search(
         "content": f"PROPOSAL: '{proposal}'\n\n{task_description}\n\nLIVE WEB SEARCH RESULTS:\n{search_results}"
     })
     
-    for msg in conversation_history:
-        messages.append(msg)
+    # Convert raw conversation history to proper OpenAI message format
+    for turn in conversation_history:
+        if turn["speaker"] == "challenger":
+            messages.append({"role": "assistant", "content": turn["text"]})
+        else:
+            messages.append({"role": "user", "content": f"[{turn['name']}]: {turn['text']}"})
     
     response = client.chat.completions.create(
         model="gpt-4o",

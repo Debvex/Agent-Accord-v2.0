@@ -62,6 +62,11 @@ async def negotiate(
             speaker = task["speaker"]
             task_desc = task["description"]
             
+            # Inject previous turn's actual text so agents know what they're responding to
+            if len(conversation_history) > 0:
+                last_turn = conversation_history[-1]
+                task_desc += f"\n\nTHE {last_turn['name'].upper()}'S LAST ARGUMENT:\n\"{last_turn['text']}\"\n\nYou MUST directly address and respond to the specific points above. Do NOT repeat your previous arguments."
+            
             if speaker == "proxy":
                 response_text = await generate_agent_response(
                     "proxy", role, document_text, prompt, conversation_history, task_desc
@@ -81,9 +86,11 @@ async def negotiate(
             
             yield f"data: {json.dumps(event_data)}\n\n"
             
+            # Store raw conversation history with speaker info
             conversation_history.append({
-                "role": "assistant",
-                "content": f"[{task['name']}]: {response_text}"
+                "speaker": speaker,
+                "name": task["name"],
+                "text": response_text
             })
             
             await asyncio.sleep(0.5)
@@ -91,7 +98,7 @@ async def negotiate(
         accord_event = {
             "type": "accord",
             "title": "Egalitarian Policy Accord v1.0",
-            "summary": conversation_history[-1]["content"] if conversation_history else "Accord reached."
+            "summary": conversation_history[-1]["text"] if conversation_history else "Accord reached."
         }
         yield f"data: {json.dumps(accord_event)}\n\n"
     
