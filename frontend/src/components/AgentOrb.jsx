@@ -3,270 +3,901 @@ import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 
-export default function AgentOrb({ position, role, roleKey, color, activeSpeaker, hideLabel = false, badgeTag }) {
-  const groupRef = useRef()
-  const ballRef = useRef()
-  const shadowGlowRef = useRef()
-  const ringAuraRef = useRef()
-  const visualizerGroupRef = useRef()
-  
 
-  const isBoss = roleKey === 'proxy'
-  const isSuggestionist = roleKey === 'challenger'
+function WaveRing({
+  color,
+  active,
+  delay = 0
+}) {
+  const ringRef = useRef()
+  const glowRef = useRef()
+  const outerGlowRef = useRef()
 
-  const isActive = useMemo(() => {
-    if (!activeSpeaker) return false
-    if (activeSpeaker === role || activeSpeaker === roleKey) return true
-    if (roleKey === 'proxy' && (activeSpeaker === 'proxy' || activeSpeaker === 'Institutional Advocate')) return true
-    if (roleKey === 'challenger' && (activeSpeaker === 'challenger' || activeSpeaker === 'Egalitarian Conscience' || activeSpeaker === 'Suggestionist Advisor')) return true
-    return false
-  }, [activeSpeaker, role, roleKey])
+  const segments = 180
+  const baseRadius = 1.08
 
-  const basePosition = useMemo(() => new THREE.Vector3(position[0], position[1], position[2]), [position])
-  const centerPosition = useMemo(() => new THREE.Vector3(0, 0, 0), [])
+  const geometry = useMemo(() => {
+    const positions = new Float32Array(
+      segments * 3
+    )
 
-  // Create custom gradient texture for the 3D ball
-  const gradientTexture = useMemo(() => {
-    const canvas = document.createElement('canvas')
-    canvas.width = 512
-    canvas.height = 512
-    const ctx = canvas.getContext('2d')
+    const geometry =
+      new THREE.BufferGeometry()
 
-    const grad = ctx.createLinearGradient(0, 0, 512, 512)
-    if (roleKey === 'proxy') {
-      grad.addColorStop(0, '#38bdf8') // Vibrant Cyan
-      grad.addColorStop(0.5, '#0284c7') // Deep Electric Blue
-      grad.addColorStop(1, '#4f46e5') // Indigo
-    } else {
-      grad.addColorStop(0, '#f43f5e') // Bright Rose
-      grad.addColorStop(0.5, '#e11d48') // Crimson
-      grad.addColorStop(1, '#fbbf24') // Warm Amber
-    }
+    geometry.setAttribute(
+      'position',
+      new THREE.BufferAttribute(
+        positions,
+        3
+      )
+    )
 
-    ctx.fillStyle = grad
-    ctx.fillRect(0, 0, 512, 512)
-
-    const texture = new THREE.CanvasTexture(canvas)
-    texture.needsUpdate = true
-    return texture
-  }, [roleKey])
-
-  // Audio equalizer bars
-  const bars = useMemo(() => {
-    return Array.from({ length: 12 }).map((_, i) => ({
-      angle: (i / 12) * Math.PI * 2,
-      baseHeight: 0.2 + Math.random() * 0.2,
-      speed: 5 + Math.random() * 6
-    }))
+    return geometry
   }, [])
 
+
   useFrame((state, delta) => {
-    const time = state.clock.elapsedTime
-
-    // Floating idle animation (Slow & Smooth)
-    if (groupRef.current) {
-      const targetY = basePosition.y + (isActive ? 0.35 : Math.sin(time * 0.8 + basePosition.x) * 0.08)
-      groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, targetY, delta * 2.5)
+    if (
+      !ringRef.current ||
+      !glowRef.current ||
+      !outerGlowRef.current
+    ) {
+      return
     }
 
-    // Ball rotation & scaling (Slow & Smooth)
-    if (ballRef.current) {
-      ballRef.current.rotation.y += delta * (isActive ? 0.5 : 0.15)
-      ballRef.current.rotation.x += delta * 0.08
+    const time =
+      state.clock.elapsedTime
 
-      const targetScale = isActive ? 1.25 : 1.0
-      ballRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), delta * 4)
 
-      if (ballRef.current.material) {
-        const targetEmissive = isActive ? 1.8 : 0.35
-        ballRef.current.material.emissiveIntensity = THREE.MathUtils.lerp(
-          ballRef.current.material.emissiveIntensity,
-          targetEmissive,
-          delta * 4
+    /*
+    =========================================
+    FACE CAMERA
+    =========================================
+
+    All three ring layers always face
+    directly toward the camera.
+
+    This keeps the rings perfectly
+    circular from the viewer's perspective.
+    */
+
+    ringRef.current.quaternion.copy(
+      state.camera.quaternion
+    )
+
+    glowRef.current.quaternion.copy(
+      state.camera.quaternion
+    )
+
+    outerGlowRef.current.quaternion.copy(
+      state.camera.quaternion
+    )
+
+
+    /*
+    =========================================
+    FADE OUT WHEN INACTIVE
+    =========================================
+    */
+
+    if (!active) {
+
+      ringRef.current.material.opacity =
+        THREE.MathUtils.damp(
+          ringRef.current.material.opacity,
+          0,
+          8,
+          delta
         )
-      }
+
+      glowRef.current.material.opacity =
+        THREE.MathUtils.damp(
+          glowRef.current.material.opacity,
+          0,
+          8,
+          delta
+        )
+
+      outerGlowRef.current.material.opacity =
+        THREE.MathUtils.damp(
+          outerGlowRef.current.material.opacity,
+          0,
+          8,
+          delta
+        )
+
+      return
     }
 
-    // Gentle Breathing Glowing Shadow Aura around the ball when speaking (Slower)
-    if (shadowGlowRef.current) {
-      if (isActive) {
-        // Slow gentle breathing glow effect when speaking
-        const blinkOpacity = 0.35 + Math.abs(Math.sin(time * 3.5)) * 0.45
-        const glowPulse = 1.05 + Math.sin(time * 2.5) * 0.1
-        shadowGlowRef.current.scale.set(glowPulse, glowPulse, glowPulse)
-        shadowGlowRef.current.material.opacity = THREE.MathUtils.lerp(
-          shadowGlowRef.current.material.opacity,
-          blinkOpacity,
-          delta * 5
+
+    /*
+    =========================================
+    WAVY RING GEOMETRY
+    =========================================
+    */
+
+    const positions =
+      ringRef.current
+        .geometry
+        .attributes
+        .position
+
+
+    for (
+      let i = 0;
+      i < segments;
+      i++
+    ) {
+
+      const angle =
+        (
+          i /
+          segments
+        ) *
+        Math.PI *
+        2
+
+
+      /*
+      Primary wave
+      */
+
+      const primaryWave =
+        Math.sin(
+          angle * 7 -
+          time * 5 +
+          delay
         )
-      } else {
-        shadowGlowRef.current.material.opacity = THREE.MathUtils.lerp(
-          shadowGlowRef.current.material.opacity,
-          0.0,
-          delta * 5
+
+
+      /*
+      Secondary wave
+      */
+
+      const secondaryWave =
+        Math.sin(
+          angle * 3 +
+          time * 2 +
+          delay
         )
-      }
+
+
+      /*
+      Combine both waves.
+      */
+
+      const radius =
+        baseRadius +
+        primaryWave * 0.105 +
+        secondaryWave * 0.045
+
+
+      /*
+      Ring is generated in XY plane.
+      Camera quaternion makes it face
+      the viewer.
+      */
+
+      positions.array[
+        i * 3
+      ] =
+        Math.cos(angle) *
+        radius
+
+      positions.array[
+        i * 3 + 1
+      ] =
+        Math.sin(angle) *
+        radius
+
+      positions.array[
+        i * 3 + 2
+      ] = 0
     }
 
-    // Outer Blinking Halo Ring (Slower)
-    if (ringAuraRef.current) {
-      if (isActive) {
-        const ringBlink = 0.3 + Math.abs(Math.cos(time * 3.0)) * 0.5
-        const ringScale = 1.0 + Math.sin(time * 2.2) * 0.15
-        ringAuraRef.current.scale.set(ringScale, ringScale, 1)
-        ringAuraRef.current.rotation.z += delta * 0.8
-        ringAuraRef.current.material.opacity = THREE.MathUtils.lerp(
-          ringAuraRef.current.material.opacity,
-          ringBlink,
-          delta * 5
-        )
-      } else {
-        ringAuraRef.current.material.opacity = THREE.MathUtils.lerp(
-          ringAuraRef.current.material.opacity,
-          0.0,
-          delta * 5
-        )
-      }
-    }
 
-    // Animate audio equalizer bars when active (Slower)
-    if (visualizerGroupRef.current) {
-      visualizerGroupRef.current.children.forEach((barMesh, idx) => {
-        const barData = bars[idx]
-        if (barData) {
-          const scaleY = isActive ? 1 + Math.sin(time * (barData.speed * 0.5) + idx) * 1.1 : 0.05
-          barMesh.scale.y = THREE.MathUtils.lerp(barMesh.scale.y, scaleY, delta * 6)
-        }
-      })
-    }
+    positions.needsUpdate = true
+
+
+    /*
+    =========================================
+    SUBTLE RING BREATHING
+    =========================================
+    */
+
+    const scale =
+      1 +
+      Math.sin(
+        time * 2 +
+        delay
+      ) *
+      0.045
+
+
+    /*
+    Main sharp ring
+    */
+
+    ringRef.current.scale.set(
+      scale,
+      scale,
+      1
+    )
+
+
+    /*
+    Medium glow
+    */
+
+    glowRef.current.scale.set(
+      scale * 1.015,
+      scale * 1.015,
+      1
+    )
+
+
+    /*
+    Outer soft glow
+    */
+
+    outerGlowRef.current.scale.set(
+      scale * 1.03,
+      scale * 1.03,
+      1
+    )
+
+
+    /*
+    =========================================
+    SHARP CORE RING
+    =========================================
+    */
+
+    const ringOpacity =
+      0.8 +
+      Math.sin(
+        time * 3 +
+        delay
+      ) *
+      0.08
+
+
+    ringRef.current.material.opacity =
+      THREE.MathUtils.damp(
+        ringRef.current.material.opacity,
+        ringOpacity,
+        6,
+        delta
+      )
+
+
+    /*
+    =========================================
+    MEDIUM GLOW
+    =========================================
+    */
+
+    const glowOpacity =
+      0.28 +
+      Math.sin(
+        time * 2.5 +
+        delay
+      ) *
+      0.06
+
+
+    glowRef.current.material.opacity =
+      THREE.MathUtils.damp(
+        glowRef.current.material.opacity,
+        glowOpacity,
+        6,
+        delta
+      )
+
+
+    /*
+    =========================================
+    OUTER SOFT GLOW
+    =========================================
+    */
+
+    const outerGlowOpacity =
+      0.10 +
+      Math.sin(
+        time * 2 +
+        delay
+      ) *
+      0.025
+
+
+    outerGlowRef.current.material.opacity =
+      THREE.MathUtils.damp(
+        outerGlowRef.current.material.opacity,
+        outerGlowOpacity,
+        6,
+        delta
+      )
   })
 
 
-  // Laser energy beam geometry from Agent to Center when active
-  const beamPoints = useMemo(() => {
-    return [new THREE.Vector3(0, 0, 0), centerPosition.clone().sub(basePosition)]
-  }, [basePosition, centerPosition])
-
-  const beamLineGeometry = useMemo(() => {
-    return new THREE.BufferGeometry().setFromPoints(beamPoints)
-  }, [beamPoints])
-
   return (
-    <group ref={groupRef} position={position}>
-      {/* Base Cyber Pedestal Shadow */}
-      <group position={[0, -0.55, 0]}>
-        <mesh rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.35, 0.75, 48]} />
-          <meshBasicMaterial
-            color={color}
-            transparent
-            opacity={isActive ? 0.9 : 0.25}
-            side={THREE.DoubleSide}
-          />
-        </mesh>
-      </group>
+    <>
 
-      {/* Main 3D Gradient Sphere Ball */}
-      <mesh ref={ballRef}>
-        <sphereGeometry args={[0.65, 64, 64]} />
-        <meshStandardMaterial
-          map={gradientTexture}
-          roughness={0.15}
-          metalness={0.8}
-          emissive={color}
-          emissiveIntensity={0.35}
-        />
-      </mesh>
+      {/* =====================================
+          OUTER SOFT GLOW
+      ===================================== */}
 
-      {/* Blinking Glowing Shadow Aura Sphere around the Ball (Speaking Effect) */}
-      <mesh ref={shadowGlowRef}>
-        <sphereGeometry args={[0.9, 32, 32]} />
-        <meshBasicMaterial
+      <lineLoop
+        ref={outerGlowRef}
+        geometry={geometry}
+      >
+
+        <lineBasicMaterial
           color={color}
           transparent
           opacity={0}
-          blending={THREE.AdditiveBlending}
-          side={THREE.BackSide}
+          blending={
+            THREE.AdditiveBlending
+          }
+          depthWrite={false}
         />
-      </mesh>
 
-      {/* Blinking Glowing Perimeter Halo Ring (Speaking Effect) */}
-      <mesh ref={ringAuraRef} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.75, 1.25, 64]} />
-        <meshBasicMaterial
+      </lineLoop>
+
+
+      {/* =====================================
+          MEDIUM GLOW
+      ===================================== */}
+
+      <lineLoop
+        ref={glowRef}
+        geometry={geometry}
+      >
+
+        <lineBasicMaterial
           color={color}
           transparent
           opacity={0}
-          side={THREE.DoubleSide}
-          blending={THREE.AdditiveBlending}
+          blending={
+            THREE.AdditiveBlending
+          }
+          depthWrite={false}
         />
-      </mesh>
 
-      {/* Active Speaker Audio Visualizer Equalizer Columns */}
-      <group ref={visualizerGroupRef} position={[0, 0, 0]}>
-        {bars.map((bar, idx) => (
-          <mesh
-            key={idx}
-            position={[
-              Math.cos(bar.angle) * 1.25,
-              0,
-              Math.sin(bar.angle) * 1.25
-            ]}
-          >
-            <boxGeometry args={[0.035, 0.7, 0.035]} />
-            <meshBasicMaterial
-              color={color}
-              transparent
-              opacity={isActive ? 0.95 : 0.0}
-            />
-          </mesh>
-        ))}
-      </group>
+      </lineLoop>
 
-      {/* Laser Energy Stream to Center when Active */}
-      {isActive && (
-        <line geometry={beamLineGeometry}>
-          <lineBasicMaterial color={color} linewidth={3} transparent opacity={0.85} />
-        </line>
-      )}
 
-      {/* 3D Holographic Label Badge */}
-      {!hideLabel && (
-        <Html position={[0, 1.45, 0]} center distanceFactor={10}>
-          <div
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-300 shadow-2xl border backdrop-blur-md flex flex-col items-center gap-0.5 ${
-              isActive
-                ? isBoss
-                  ? 'bg-cyan-950/90 text-cyan-300 border-cyan-400 shadow-[0_0_25px_rgba(56,189,248,0.7)] scale-110'
-                  : 'bg-rose-950/90 text-rose-300 border-rose-400 shadow-[0_0_25px_rgba(244,63,94,0.7)] scale-110'
-                : 'bg-slate-900/80 text-slate-300 border-slate-700/80 opacity-80'
-            }`}
-          >
-            <div className="flex items-center gap-1.5 font-bold tracking-wide">
-              {isBoss && <span className="text-amber-400 text-xs">👑</span>}
-              {isSuggestionist && <span className="text-rose-400 text-xs">💡</span>}
-              <span>{role}</span>
-              {isActive && (
-                <span className="text-[9px] font-extrabold tracking-wider uppercase px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 animate-pulse">
-                  SPEAKING
-                </span>
-              )}
-            </div>
-            <span
-              className={`text-[9px] uppercase tracking-wider font-mono px-1.5 py-0.2 rounded ${
-                isBoss
-                  ? 'bg-cyan-900/60 text-cyan-300 border border-cyan-700/50'
-                  : 'bg-rose-900/60 text-rose-300 border border-rose-700/50'
-              }`}
-            >
-              {badgeTag || (isBoss ? 'BOSS / DECISION MAKER' : 'SUGGESTIONIST ADVISOR')}
-            </span>
-          </div>
-        </Html>
-      )}
-    </group>
+      {/* =====================================
+          SHARP CORE RING
+      ===================================== */}
+
+      <lineLoop
+        ref={ringRef}
+        geometry={geometry}
+      >
+
+        <lineBasicMaterial
+          color={color}
+          transparent
+          opacity={0}
+          blending={
+            THREE.AdditiveBlending
+          }
+          depthWrite={false}
+        />
+
+      </lineLoop>
+
+    </>
   )
 }
 
 
+export default function AgentOrb({
+  position,
+  role,
+  roleKey,
+  color,
+  activeSpeaker,
+  hideLabel = false,
+  badgeTag
+}) {
 
+  const orbRef =
+    useRef()
+
+
+  /*
+  =========================================
+  AGENT TYPE
+  =========================================
+  */
+
+  const isBoss =
+    roleKey === 'proxy'
+
+  const isSuggestionist =
+    roleKey === 'challenger'
+
+
+  /*
+  =========================================
+  ACTIVE SPEAKER DETECTION
+  =========================================
+  */
+
+  const isActive =
+    useMemo(() => {
+
+      if (!activeSpeaker) {
+        return false
+      }
+
+
+      if (
+        activeSpeaker === role ||
+        activeSpeaker === roleKey
+      ) {
+        return true
+      }
+
+
+      if (
+        roleKey === 'proxy' &&
+        (
+          activeSpeaker === 'proxy' ||
+          activeSpeaker ===
+            'Institutional Advocate'
+        )
+      ) {
+        return true
+      }
+
+
+      if (
+        roleKey === 'challenger' &&
+        (
+          activeSpeaker ===
+            'challenger' ||
+          activeSpeaker ===
+            'Egalitarian Conscience' ||
+          activeSpeaker ===
+            'Suggestionist Advisor'
+        )
+      ) {
+        return true
+      }
+
+
+      return false
+
+    }, [
+      activeSpeaker,
+      role,
+      roleKey
+    ])
+
+
+  /*
+  =========================================
+  ORB MATERIAL
+  =========================================
+
+  The material starts with a very subtle
+  emissive value.
+
+  When active, the emissive intensity
+  smoothly increases in the animation loop,
+  creating a soft glow around the orb.
+  */
+
+  const orbMaterial =
+    useMemo(() => {
+
+      return new THREE
+        .MeshStandardMaterial({
+
+          color:
+            new THREE.Color(
+              color
+            ),
+
+          roughness:
+            0.3,
+
+          metalness:
+            0.15,
+
+          emissive:
+            new THREE.Color(
+              color
+            ),
+
+          emissiveIntensity:
+            0.05
+
+        })
+
+    }, [color])
+
+
+  /*
+  =========================================
+  ANIMATION LOOP
+  =========================================
+
+  The parent group is fixed.
+
+  The orb:
+
+  - never rotates
+  - floats gently when idle
+  - subtly grows and shrinks when active
+  - softly glows when active
+
+  The rings:
+
+  - face the camera
+  - remain perfectly circular
+  - animate independently
+  */
+
+  useFrame(
+    (
+      state,
+      delta
+    ) => {
+
+      const time =
+        state.clock.elapsedTime
+
+
+      /*
+      =========================================
+      ORB ANIMATION
+      =========================================
+      */
+
+      if (
+        orbRef.current
+      ) {
+
+        if (isActive) {
+
+          /*
+          =====================================
+          ACTIVE ORB SCALE
+
+          Slight breathing effect.
+          */
+
+          const activeScale =
+            1 +
+            Math.sin(
+              time * 4
+            ) *
+            0.08
+
+
+          const currentScale =
+            THREE.MathUtils.damp(
+              orbRef.current.scale.x,
+              activeScale,
+              8,
+              delta
+            )
+
+
+          orbRef.current.scale.set(
+            currentScale,
+            currentScale,
+            currentScale
+          )
+
+
+          /*
+          Keep active orb centered.
+          */
+
+          orbRef.current.position.y =
+            THREE.MathUtils.damp(
+              orbRef.current.position.y,
+              0,
+              8,
+              delta
+            )
+
+
+          /*
+          =====================================
+          ACTIVE ORB GLOW
+
+          Smoothly increase the emissive
+          intensity while speaking.
+
+          The glow remains subtle so the
+          rings still remain the primary
+          visual focus.
+          */
+
+          const targetEmissiveIntensity =
+            0.65 +
+            Math.sin(
+              time * 4
+            ) *
+            0.12
+
+
+          orbMaterial.emissiveIntensity =
+            THREE.MathUtils.damp(
+              orbMaterial.emissiveIntensity,
+              targetEmissiveIntensity,
+              6,
+              delta
+            )
+
+        } else {
+
+          /*
+          =====================================
+          IDLE ORB
+
+          Gentle floating motion.
+          */
+
+          const idleFloat =
+            Math.sin(
+              time * 1.2 +
+              position[0]
+            ) *
+            0.08
+
+
+          orbRef.current.position.y =
+            THREE.MathUtils.damp(
+              orbRef.current.position.y,
+              idleFloat,
+              4,
+              delta
+            )
+
+
+          /*
+          Return to normal size.
+          */
+
+          const currentScale =
+            THREE.MathUtils.damp(
+              orbRef.current.scale.x,
+              1,
+              5,
+              delta
+            )
+
+
+          orbRef.current.scale.set(
+            currentScale,
+            currentScale,
+            currentScale
+          )
+
+
+          /*
+          =====================================
+          IDLE ORB GLOW
+
+          Smoothly fade the emissive glow
+          back to an almost invisible level.
+          */
+
+          orbMaterial.emissiveIntensity =
+            THREE.MathUtils.damp(
+              orbMaterial.emissiveIntensity,
+              0.05,
+              5,
+              delta
+            )
+
+        }
+
+      }
+
+    }
+  )
+
+
+  return (
+
+    /*
+    =========================================
+    FIXED WORLD POSITION
+
+    This parent group never:
+
+    - moves
+    - rotates
+    - scales
+
+    Therefore the agent stays anchored
+    exactly where it was placed.
+    */
+
+    <group
+      position={position}
+    >
+
+
+      {/* =====================================
+          MAIN ORB
+
+          Small, clean, minimalist orb.
+
+          Idle:
+          Subtle floating.
+
+          Active:
+          Slight breathing + soft glow.
+
+          The orb itself never rotates.
+      ===================================== */}
+
+      <mesh
+        ref={orbRef}
+        material={orbMaterial}
+      >
+
+        <sphereGeometry
+          args={[
+            0.32,
+            64,
+            64
+          ]}
+        />
+
+      </mesh>
+
+
+      {/* =====================================
+          ACTIVE WAVY GLOW RING 1
+      ===================================== */}
+
+      <WaveRing
+        color={color}
+        active={isActive}
+        delay={0}
+      />
+
+
+      {/* =====================================
+          ACTIVE WAVY GLOW RING 2
+
+          Offset from ring 1 to create
+          continuous visual movement.
+      ===================================== */}
+
+      <WaveRing
+        color={color}
+        active={isActive}
+        delay={Math.PI}
+      />
+
+
+      {/* =====================================
+          MINIMAL LABEL
+      ===================================== */}
+
+      {!hideLabel && (
+
+        <Html
+          position={[
+            0,
+            0.95,
+            0
+          ]}
+          center
+          distanceFactor={9}
+          zIndexRange={[
+            10,
+            0
+          ]}
+        >
+
+          <div
+            className={`
+              flex
+              items-center
+              gap-2
+              whitespace-nowrap
+              transition-colors
+              duration-300
+              ${
+                isActive
+                  ? 'text-white'
+                  : 'text-slate-400'
+              }
+            `}
+          >
+
+
+            {/* =================================
+                STATUS INDICATOR
+            ================================= */}
+
+            <span
+              className={`
+                block
+                w-1.5
+                h-1.5
+                rounded-full
+                ${
+                  isActive
+
+                    ? isBoss
+
+                      ? `
+                        bg-cyan-400
+                        shadow-[0_0_8px_rgba(34,211,238,0.8)]
+                      `
+
+                      : `
+                        bg-rose-400
+                        shadow-[0_0_8px_rgba(251,113,133,0.8)]
+                      `
+
+                    : `
+                      bg-slate-600
+                    `
+                }
+              `}
+            />
+
+
+            {/* =================================
+                AGENT NAME
+            ================================= */}
+
+            <span
+              className="
+                text-xs
+                font-medium
+                tracking-wide
+              "
+            >
+              {role}
+            </span>
+
+
+            {/* =================================
+                SPEAKING INDICATOR
+            ================================= */}
+
+            {isActive && (
+
+              <span
+                className={`
+                  text-[9px]
+                  uppercase
+                  tracking-[0.18em]
+                  font-medium
+                  ${
+                    isBoss
+                      ? 'text-cyan-400/70'
+                      : 'text-rose-400/70'
+                  }
+                `}
+              >
+                Speaking
+              </span>
+
+            )}
+
+          </div>
+
+        </Html>
+
+      )}
+
+    </group>
+
+  )
+}
