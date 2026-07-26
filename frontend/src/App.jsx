@@ -90,12 +90,16 @@ export default function App() {
 
 
     const url = `http://localhost:8000/negotiate?role=${encodeURIComponent(role)}&prompt=${encodeURIComponent(prompt)}${filePath ? `&file_path=${encodeURIComponent(filePath)}` : ''}`
+    console.log('Connecting to backend SSE:', url)
     const es = new EventSource(url)
     eventSourceRef.current = es
+    let hasReceivedData = false
 
     es.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
+        hasReceivedData = true
+        console.log('Received SSE event:', data.type, data.speaker || data.name)
         if (data.type === 'turn') {
           setActiveSpeaker(data.speaker || data.name)
           setChatLog((prev) => [...prev, data])
@@ -111,9 +115,19 @@ export default function App() {
     }
 
     es.onerror = (err) => {
-      console.warn('SSE Error / Backend offline. Falling back to Mock Mode simulation.', err)
-      es.close()
-      runMockNegotiation()
+      console.warn('SSE connection error:', err)
+      
+      // Only fall back to mock mode if we haven't received any data yet
+      if (!hasReceivedData) {
+        console.warn('No data received from backend. Falling back to Mock Mode simulation.')
+        es.close()
+        runMockNegotiation()
+      } else {
+        // If we already received some data, just close the connection gracefully
+        console.warn('SSE connection closed, but debate was in progress. Closing gracefully.')
+        es.close()
+        setIsRunning(false)
+      }
     }
   }
 

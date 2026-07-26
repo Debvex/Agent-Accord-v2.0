@@ -18,8 +18,28 @@ An autonomous AI governance platform where two AI agents engage in adversarial d
   - Get one: https://serper.dev/ (free tier available)
 
 ### Optional: MongoDB History Server
-- The DecisionLedger auto-saves accord PDFs to a MongoDB backend at `http://localhost:5000/api/history`
-- If this server is not running, the app still works — PDF download and clipboard copy remain functional
+The DecisionLedger auto-saves accord PDFs to a MongoDB backend at `http://localhost:5000/api/history`. This enables:
+- **History Tab**: View all past debates in the sidebar
+- **Accord Persistence**: Every accord is saved as a PDF to MongoDB Atlas
+- **Audit Trail**: Complete record of all negotiations
+
+**Setup:**
+```powershell
+cd db
+npm install
+```
+
+**Run:**
+```powershell
+node server.js
+```
+
+**Configuration:**
+- Edit `db/.env` to set your MongoDB Atlas connection string
+- Default: `MONGODB_URI=mongodb+srv://...` (get from MongoDB Atlas)
+- Server runs on port 5000 by default
+
+If this server is not running, the app still works — PDF download and clipboard copy remain functional, but the History tab will be empty.
 
 ---
 
@@ -86,7 +106,7 @@ Key dependencies:
 
 ## Running the Application
 
-You need **two terminals** — one for backend, one for frontend.
+You need **three terminals** — one for backend, one for frontend, and one for MongoDB (optional but recommended).
 
 ### Terminal 1: Start Backend
 ```powershell
@@ -116,6 +136,33 @@ Expected output:
   VITE v5.x.x  ready in ~400 ms
   ->  Local:   http://localhost:5173/
 ```
+
+### Terminal 3: Start MongoDB Server (Optional)
+The MongoDB server automatically saves debate accords to a persistent database. While optional, it enables the History tab and accord persistence.
+
+```powershell
+cd db
+npm install  # Only needed first time
+node server.js
+```
+
+Expected output:
+```
+MongoDB History Server running on http://localhost:5000
+Connected to MongoDB Atlas
+```
+
+Verify:
+```powershell
+curl http://localhost:5000/health
+# {"status":"ok","message":"MongoDB History Server is running"}
+```
+
+**What it does:**
+- Runs on `http://localhost:5000`
+- Automatically saves each accord as a PDF to MongoDB Atlas
+- Enables the History tab in the sidebar to view past debates
+- If not running, the app still works — PDF download and clipboard copy remain functional
 
 Open your browser: **http://localhost:5173**
 
@@ -225,6 +272,16 @@ Agent Accord-v2.0/
 │   ├── tasks.py                 # 4-turn debate task definitions
 │   └── main.py                  # FastAPI server with SSE streaming
 │
+├── db/
+│   ├── .env                     # MongoDB Atlas connection string (gitignored)
+│   ├── .env.example             # Template for MongoDB URI
+│   ├── package.json             # Node dependencies for MongoDB server
+│   ├── server.js                # Express server for MongoDB operations
+│   ├── controllers/
+│   │   └── historyController.js # CRUD operations for debate history
+│   └── models/
+│       └── History.js           # Mongoose schema for debate records
+│
 └── frontend/
     ├── src/
     │   ├── components/
@@ -265,6 +322,33 @@ Agent Accord-v2.0/
 - `POST /upload` — File upload handler (PDF/TXT)
 - `GET /negotiate` — SSE streaming endpoint with async generator
 - `GET /health` — Health check
+
+### MongoDB Server (Node.js Express)
+
+**server.js** — MongoDB history server:
+- Express server running on port 5000
+- Connects to MongoDB Atlas cloud database
+- Provides REST API for debate history CRUD operations
+- Auto-saves accord PDFs with metadata
+
+**API Endpoints:**
+- `POST /api/history` — Save new debate accord (auto-called by DecisionLedger)
+- `GET /api/history` — Retrieve all past debates (used by History tab)
+- `GET /api/history/:id` — Get specific debate by ID
+- `DELETE /api/history/:id` — Delete a debate record
+
+**models/History.js** — Mongoose schema:
+- `title` — Debate title
+- `summary` — Accord summary text
+- `resilience_score` — Predictive resilience metric
+- `fairness_score` — Governance fairness metric
+- `pdf_data` — Base64-encoded PDF
+- `created_at` — Timestamp
+
+**controllers/historyController.js** — Business logic:
+- Handles PDF storage and retrieval
+- Manages debate history records
+- Error handling for MongoDB operations
 
 ### Frontend (React + Three.js)
 
@@ -392,9 +476,33 @@ CRITICAL ERROR: OPENAI_API_KEY is missing in .env file.
 - Ensure `backend/.env` exists with valid keys (no quotes around values)
 
 ### MongoDB History Not Saving
-- The DecisionLedger tries to POST to `http://localhost:5000/api/history`
-- If the MongoDB server is not running, PDF download and clipboard copy still work
-- Check browser console for the specific error
+- Ensure MongoDB server is running: `cd db && node server.js`
+- Check if port 5000 is available: `netstat -ano | findstr :5000`
+- Verify MongoDB Atlas connection string in `db/.env`
+- Check browser console for CORS or connection errors
+- If server is not running, PDF download and clipboard copy still work
+
+### MongoDB Connection Errors
+```
+Error: connect ECONNREFUSED 127.0.0.1:5000
+```
+- Start the MongoDB server: `cd db && node server.js`
+- Expected output: "MongoDB History Server running on http://localhost:5000"
+
+### MongoDB Atlas Configuration
+1. Create a MongoDB Atlas account at https://www.mongodb.com/cloud/atlas
+2. Create a cluster and get your connection string
+3. Edit `db/.env` and set:
+   ```env
+   MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/agentaccord?retryWrites=true&w=majority
+   ```
+4. Restart the MongoDB server
+
+### Port 5000 Already in Use
+```powershell
+netstat -ano | findstr :5000
+taskkill /F /PID <PID>
+```
 
 ### 3D Stage Not Rendering
 - Ensure WebGL is supported (try Chrome, Firefox, or Edge)
