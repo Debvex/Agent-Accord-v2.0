@@ -23,6 +23,25 @@ export default function DecisionLedger({ accord, prompt, chatLog, onReset }) {
   const [activeTab, setActiveTab] = useState('overview') // 'overview' | 'ledger'
   const [dbSaved, setDbSaved] = useState(false)
 
+  const generateUniqueFileName = () => {
+    const slug = (prompt || accord?.title || 'accord')
+      .replace(/[^a-z0-9]+/gi, '-')
+      .replace(/^-+|-+$/g, '')
+      .toLowerCase()
+      .substring(0, 25)
+    const timeStamp = new Date().toISOString().replace(/[-:T.]/g, '').substring(0, 14)
+    const randomHash = Math.random().toString(36).substring(2, 7)
+    return `${slug || 'accord'}-${timeStamp}-${randomHash}.pdf`
+  }
+
+  const generateUniqueTitle = () => {
+    if (prompt) {
+      const cleanPrompt = prompt.length > 50 ? prompt.substring(0, 50) + '...' : prompt
+      return `Accord: ${cleanPrompt}`
+    }
+    return accord?.title || 'Executive Decision Accord'
+  }
+
   // Automatically save PDF to MongoDB as soon as Accord is generated
   useEffect(() => {
     if (!accord) return
@@ -30,17 +49,15 @@ export default function DecisionLedger({ accord, prompt, chatLog, onReset }) {
     const timer = setTimeout(() => {
       try {
         const doc = buildPdfDoc()
-        const safeTitle = (accord.title || 'agent-accord-ledger')
-          .replace(/[^a-z0-9]+/gi, '-')
-          .replace(/^-+|-+$/g, '')
-          .toLowerCase()
         const pdfBase64 = doc.output('datauristring')
+        const uniqueFileName = generateUniqueFileName()
+        const uniqueTitle = generateUniqueTitle()
 
         axios
           .post('http://localhost:5000/api/history', {
-            title: accord.title || 'Executive Decision Ledger',
+            title: uniqueTitle,
             description: accord.summary || prompt || '',
-            fileName: `${safeTitle || 'agent-accord-ledger'}.pdf`,
+            fileName: uniqueFileName,
             fileData: pdfBase64
           })
           .then((res) => {
@@ -56,7 +73,7 @@ export default function DecisionLedger({ accord, prompt, chatLog, onReset }) {
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [accord])
+  }, [accord, prompt])
 
   if (!accord) return null
 
@@ -185,23 +202,20 @@ export default function DecisionLedger({ accord, prompt, chatLog, onReset }) {
 
   const handleDownload = () => {
     const doc = buildPdfDoc()
-    const safeTitle = (accord.title || 'agent-accord-ledger')
-      .replace(/[^a-z0-9]+/gi, '-')
-      .replace(/^-+|-+$/g, '')
-      .toLowerCase()
+    const uniqueFileName = generateUniqueFileName()
+    const uniqueTitle = generateUniqueTitle()
 
-    doc.save(`${safeTitle || 'agent-accord-ledger'}.pdf`)
+    doc.save(uniqueFileName)
 
     // Also manually save to MongoDB on download click
     try {
       const pdfBase64 = doc.output('datauristring')
-      const fileName = `${safeTitle || 'agent-accord-ledger'}.pdf`
 
       axios
         .post('http://localhost:5000/api/history', {
-          title: accord.title || 'Executive Decision Ledger',
+          title: uniqueTitle,
           description: accord.summary || prompt || '',
-          fileName: fileName,
+          fileName: uniqueFileName,
           fileData: pdfBase64
         })
         .then((res) => {
