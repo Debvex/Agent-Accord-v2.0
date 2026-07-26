@@ -11,6 +11,7 @@ import {
   History
 } from 'lucide-react'
 import FileManager from './FileManager'
+import Logo from './Logo'
 
 export default function Sidebar({
   role,
@@ -56,6 +57,8 @@ export default function Sidebar({
               )}
             </button>
           </div>
+
+          <Logo className="w-16 h-16 mb-2" />
 
           <h1 className="text-2xl font-extrabold tracking-tight text-cyan-400 drop-shadow-[0_0_15px_rgba(34,211,238,0.3)]">
             AgentAccord v2.0

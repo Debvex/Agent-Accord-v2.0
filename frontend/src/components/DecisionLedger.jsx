@@ -203,31 +203,8 @@ export default function DecisionLedger({ accord, prompt, chatLog, onReset }) {
   const handleDownload = () => {
     const doc = buildPdfDoc()
     const uniqueFileName = generateUniqueFileName()
-    const uniqueTitle = generateUniqueTitle()
 
     doc.save(uniqueFileName)
-
-    // Also manually save to MongoDB on download click
-    try {
-      const pdfBase64 = doc.output('datauristring')
-
-      axios
-        .post('http://localhost:5000/api/history', {
-          title: uniqueTitle,
-          description: accord.summary || prompt || '',
-          fileName: uniqueFileName,
-          fileData: pdfBase64
-        })
-        .then((res) => {
-          console.log('PDF saved to MongoDB history successfully:', res.data)
-          setDbSaved(true)
-        })
-        .catch((err) => {
-          console.error('Failed to save PDF to MongoDB history:', err)
-        })
-    } catch (err) {
-      console.error('Error generating PDF data string for MongoDB:', err)
-    }
   }
 
   const handleCopy = () => {
