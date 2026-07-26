@@ -1,31 +1,33 @@
-# AgentAccord v2.0 — The Sentient 1v1 Dialectic Engine
+# AgentAccord v2.0 — No Decision Ships Unchallenged.
 
-An autonomous AI governance platform where two AI agents debate high-stakes proposals in a live 3D WebGL environment. One agent defends institutional authority using internal documents; the other challenges with live web search and ethical reasoning. They debate until reaching an egalitarian compromise.
+An autonomous AI governance platform where two AI agents engage in adversarial dialectic debate over high-stakes proposals in a cinematic 3D WebGL environment. One agent defends institutional authority using internal documents; the other challenges with live web search and ethical reasoning. They debate until reaching an auditable egalitarian compromise — exported as a PDF and persisted to MongoDB.
 
 ---
 
 ## Prerequisites
 
 ### Required Software
-- **Python 3.10+** (tested on 3.14.6)
-- **Node.js 18+** (tested on 24.18.0)
-- **npm 9+** (tested on 12.0.1)
+- **Python 3.10+**
+- **Node.js 18+**
+- **npm 9+**
 
 ### API Keys (for Live Mode)
-- **OpenAI API Key** — Powers GPT-4o agent reasoning and document embeddings
+- **OpenAI API Key** — Powers GPT-4o agent reasoning
   - Get one: https://platform.openai.com/api-keys
 - **Serper API Key** — Powers live Google Search for fact-checking
   - Get one: https://serper.dev/ (free tier available)
+
+### Optional: MongoDB History Server
+- The DecisionLedger auto-saves accord PDFs to a MongoDB backend at `http://localhost:5000/api/history`
+- If this server is not running, the app still works — PDF download and clipboard copy remain functional
 
 ---
 
 ## Installation
 
-### 1. Clone or Download the Project
+### 1. Clone the Project
 ```powershell
-cd "C:\Users\settd\OneDrive\Desktop\Projects"
-# If cloning from git:
-# git clone <repository-url>
+git clone https://github.com/Debvex/Agent-Accord-v2.0.git
 cd "Agent Accord-v2.0"
 ```
 
@@ -37,7 +39,7 @@ cd backend
 pip install -r requirements.txt
 ```
 
-This installs:
+Dependencies:
 - `fastapi==0.115.6` — Web framework
 - `uvicorn[standard]==0.34.0` — ASGI server
 - `python-multipart==0.0.20` — File upload handling
@@ -49,10 +51,7 @@ This installs:
 
 #### Configure Environment Variables
 ```powershell
-# Copy the example file
 copy .env.example .env
-
-# Edit .env and add your API keys
 notepad .env
 ```
 
@@ -72,13 +71,15 @@ cd ../frontend
 npm install
 ```
 
-This installs:
-- **React 19** — UI framework
-- **Vite 8** — Build tool
+Key dependencies:
+- **React 18** — UI framework
+- **Vite 5** — Build tool
 - **Tailwind CSS 4** — Utility-first CSS
-- **React Three Fiber** — React renderer for Three.js
-- **@react-three/drei** — Helpers for R3F
-- **three** — 3D graphics library
+- **React Three Fiber 8** — React renderer for Three.js
+- **@react-three/drei 9** — R3F helpers
+- **three 0.163** — 3D graphics library
+- **axios** — HTTP client (file uploads, MongoDB persistence)
+- **jspdf** — PDF generation for Decision Ledger export
 - **lucide-react** — Icon library
 
 ---
@@ -89,37 +90,31 @@ You need **two terminals** — one for backend, one for frontend.
 
 ### Terminal 1: Start Backend
 ```powershell
-cd "C:\Users\settd\OneDrive\Desktop\Projects\Agent Accord-v2.0\backend"
+cd backend
 python main.py
 ```
 
 Expected output:
 ```
-INFO:     Started server process [12345]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 ```
 
-Verify backend is running:
+Verify:
 ```powershell
-# In a new terminal or browser
 curl http://localhost:8000/health
-# Should return: {"status":"ok","version":"2.0"}
+# {"status":"ok","version":"2.0"}
 ```
 
 ### Terminal 2: Start Frontend
 ```powershell
-cd "C:\Users\settd\OneDrive\Desktop\Projects\Agent Accord-v2.0\frontend"
+cd frontend
 npm run dev
 ```
 
 Expected output:
 ```
-  VITE v8.1.5  ready in 333 ms
-
-  ➜  Local:   http://localhost:5173/
-  ➜  Network: use --host to expose
+  VITE v5.x.x  ready in ~400 ms
+  ->  Local:   http://localhost:5173/
 ```
 
 Open your browser: **http://localhost:5173**
@@ -128,54 +123,50 @@ Open your browser: **http://localhost:5173**
 
 ## Usage
 
+### The Sidebar
+
+The left sidebar has three tabs:
+
+- **Setup** — Upload context documents, enter your role and proposal, then click INITIATE DEBATE
+- **Dialogue** — Live streaming transcript of the debate (auto-switches when debate starts)
+- **History** — Opens stored MongoDB history records (requires MongoDB server at localhost:5000)
+
 ### Mock Mode (Offline Demo — No API Credits Required)
 
-Perfect for hackathon demos or when API credits are exhausted.
+1. **Toggle Mock Mode**: Click the toggle in the sidebar header, or press `Ctrl+M`
+2. **Enter your role**: e.g., "CEO of Apex Labs"
+3. **Enter your proposal**: e.g., "Cut R&D by 20% immediately"
+4. **Click INITIATE DEBATE**
 
-1. **Open the app**: http://localhost:5173
-2. **Enable Mock Mode**: Press `Ctrl+M` (you'll see "Mock Mode Active" indicator)
-3. **Enter your role**: e.g., "CEO of Apex Labs" or "Mayor of New York"
-4. **Enter your proposal**: e.g., "Cut R&D by 20% immediately"
-5. **File upload is optional** in mock mode
-6. **Click "INITIATE DEBATE"**
-
-**What happens**:
-- A pre-scripted 4-turn debate plays automatically (4 seconds per turn)
-- **Blue orb** (Institutional Advocate) defends the proposal using "internal document" quotes
-- **Green orb** (Egalitarian Conscience) challenges with "web search" data and ethical arguments
-- Both orbs animate: scale up, pulse, and glow when speaking
-- After 4 turns, orbs merge into a **gold sphere**
-- **Accord Ledger** modal appears showing the final compromise
+A pre-scripted 4-turn debate plays automatically (~2.4 seconds per turn). No backend connection required. If the backend is unreachable in live mode, the app auto-falls back to mock mode.
 
 ### Live Mode (Real AI Debate — Requires API Credits)
 
-For actual AI-powered debates with real-time web search.
-
-1. **Ensure API keys are set** in `backend/.env`:
-   ```env
-   OPENAI_API_KEY=sk-proj-...
-   SERPER_API_KEY=...
-   ```
-
-2. **Upload a document**: Drag & drop a PDF or TXT file containing context for your proposal
-   - Example: Financial reports, policy documents, strategic plans
-   - The system extracts text and uses it as the "internal document"
-
-3. **Enter your role**: Your institutional position (e.g., "CFO of TechCorp")
-
-4. **Enter your proposal**: The controversial decision to debate
-
-5. **Click "INITIATE DEBATE"**
+1. Ensure `backend/.env` has valid `OPENAI_API_KEY` and `SERPER_API_KEY`
+2. Upload a PDF or TXT document in the Setup tab
+3. Enter your role and proposal
+4. Click INITIATE DEBATE
 
 **What happens**:
-- Backend extracts text from your uploaded document
 - **Turn 1**: Proxy agent defends proposal using document quotes (GPT-4o)
-- **Turn 2**: Challenger agent performs live Serper web search, fact-checks claims, rebuts with external data
+- **Turn 2**: Challenger agent performs live Serper web search, fact-checks claims, rebuts
 - **Turn 3**: Proxy responds, defends non-negotiable points, offers concession
 - **Turn 4**: Challenger synthesizes debate into final Egalitarian Accord
 - All turns stream in real-time via Server-Sent Events (SSE)
 - 3D orbs animate as each agent speaks
-- Final accord displayed in gold ledger
+- Final accord opens the Decision Ledger with metrics and PDF export
+
+### The Decision Ledger
+
+When the debate concludes, the Decision Ledger modal appears with:
+
+- **Executive Overview** — Policy compromise summary, strategic resource allocation chart, governance guarantees checklist
+- **Audit Transcript** — Full immutable record of all dialogue turns
+- **Resilience Score** — Predictive market resilience metric (X / 10.0)
+- **Fairness Score** — Governance & layoff fairness metric (X / 10.0)
+- **Export PDF** — Downloads a professionally formatted A4 PDF of the entire accord
+- **MongoDB Auto-Save** — Automatically persists the PDF to MongoDB history (if server is running)
+- **Copy to Clipboard** — Copies the accord summary
 
 ---
 
@@ -186,53 +177,37 @@ For actual AI-powered debates with real-time web search.
 #### `POST /upload`
 Upload a document for the debate.
 
-**Request**:
 ```bash
-curl -X POST http://localhost:8000/upload \
-  -F "file=@/path/to/document.pdf"
+curl -X POST http://localhost:8000/upload -F "file=@document.pdf"
 ```
 
-**Response**:
+Response:
 ```json
-{
-  "status": "ready",
-  "path": "C:\\...\\backend\\uploads\\session_doc.pdf",
-  "filename": "document.pdf"
-}
+{ "status": "ready", "path": "...\\uploads\\session_doc.pdf", "filename": "document.pdf" }
 ```
 
 #### `GET /negotiate`
 Start the debate (SSE stream).
 
-**Query Parameters**:
-- `role` (string): User's role (e.g., "CEO of Apex Labs")
-- `prompt` (string): The proposal to debate
-- `file_path` (string): Path to uploaded document
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `role` | string | User's role (e.g., "CEO of Apex Labs") |
+| `prompt` | string | The proposal to debate |
+| `file_path` | string | Path to uploaded document |
 
-**Example**:
 ```bash
 curl -N "http://localhost:8000/negotiate?role=CEO&prompt=Cut%20R%26D&file_path=uploads/session_doc.pdf"
 ```
 
-**SSE Events**:
+SSE Events:
 ```
-data: {"type": "turn", "speaker": "proxy", "name": "Institutional Advocate", "color": "#3b82f6", "text": "..."}
-
-data: {"type": "turn", "speaker": "challenger", "name": "Egalitarian Conscience", "color": "#10b981", "text": "..."}
-
+data: {"type": "turn", "speaker": "proxy", "name": "Institutional Advocate", "color": "#38bdf8", "text": "..."}
+data: {"type": "turn", "speaker": "challenger", "name": "Egalitarian Conscience", "color": "#f43f5e", "text": "..."}
 data: {"type": "accord", "title": "Egalitarian Policy Accord v1.0", "summary": "..."}
 ```
 
 #### `GET /health`
-Health check endpoint.
-
-**Response**:
-```json
-{
-  "status": "ok",
-  "version": "2.0"
-}
-```
+Health check. Returns `{"status": "ok", "version": "2.0"}`
 
 ---
 
@@ -246,20 +221,19 @@ Agent Accord-v2.0/
 │   ├── .env.example             # Template for .env
 │   ├── .gitignore               # Git ignore rules
 │   ├── requirements.txt         # Python dependencies
-│   ├── agents.py                # OpenAI agent engine + Serper search
+│   ├── agents.py                # OpenAI agent engine + Serper web search
 │   ├── tasks.py                 # 4-turn debate task definitions
 │   └── main.py                  # FastAPI server with SSE streaming
 │
 └── frontend/
     ├── src/
     │   ├── components/
-    │   │   ├── SetupModal.jsx       # File upload + role/prompt form
-    │   │   ├── Stage3D.jsx          # R3F canvas with 3D scene
-    │   │   ├── AgentOrb.jsx         # Animated orb (pulse/scale/glow)
-    │   │   ├── LiveTranscript.jsx   # Scrolling debate log
-    │   │   └── AccordLedger.jsx     # Gold compromise overlay
-    │   ├── App.jsx                  # Main app state machine
-    │   ├── mockData.js              # Pre-scripted debate for offline demo
+    │   │   ├── Sidebar.jsx          # Tabbed control panel (Setup / Dialogue / History)
+    │   │   ├── Scene.jsx            # R3F canvas with stars, particles, fixed camera
+    │   │   ├── AgentOrb.jsx         # Minimalist orb with wavy glow rings (WaveRing)
+    │   │   ├── DecisionLedger.jsx   # PDF export, MongoDB save, metrics dashboard
+    │   │   └── FileManager.jsx      # Multi-format file upload with preview/share/delete
+    │   ├── App.jsx                  # Main state: SSE listener, mock mode, auto-fallback
     │   ├── index.css                # Tailwind CSS imports
     │   └── main.jsx                 # React entry point
     ├── package.json                 # Node dependencies
@@ -274,67 +248,121 @@ Agent Accord-v2.0/
 
 **agents.py** — Core AI engine:
 - `extract_pdf_text()` — Extracts text from PDF/TXT files
-- `serper_search()` — Async Serper API calls for live web search
-- `scrape_website()` — Web page content extraction
-- `generate_agent_response()` — OpenAI GPT-4o chat completions
-- `generate_challenger_response_with_search()` — Challenger with mandatory web search
+- `serper_search()` — Async Serper API calls for live Google search
+- `scrape_website()` — Web page content extraction via BeautifulSoup
+- `generate_agent_response()` — OpenAI GPT-4o chat completions for either agent
+- `generate_challenger_response_with_search()` — Challenger with mandatory web search step before responding
 
 **tasks.py** — Debate structure:
-- Defines 4 sequential debate turns
-- Each turn has speaker, description, and expected output
+- 4 sequential debate turns with speaker, description, and color
 - Turn 1: Proxy opening thesis (document-based)
-- Turn 2: Challenger rebuttal (web search + document)
+- Turn 2: Challenger rebuttal (mandatory web search + document)
 - Turn 3: Proxy defense + concession
 - Turn 4: Challenger synthesis (final accord)
 
 **main.py** — FastAPI server:
 - CORS middleware (allows localhost:5173)
-- `POST /upload` — File upload handler
-- `GET /negotiate` — SSE streaming endpoint
-- Runs debate loop, emits JSON events per turn
+- `POST /upload` — File upload handler (PDF/TXT)
+- `GET /negotiate` — SSE streaming endpoint with async generator
+- `GET /health` — Health check
 
 ### Frontend (React + Three.js)
 
-**App.jsx** — State machine:
-- Phases: `setup` → `debate` → `accord`
-- Manages SSE connection to backend
-- Handles mock mode (Ctrl+M toggle)
-- Coordinates 3D stage + transcript + ledger
+**App.jsx** — State coordinator:
+- Manages `role`, `prompt`, `selectedFiles`, `activeSpeaker`, `chatLog`, `accord`, `useMockMode`
+- `runLiveSSENegotiation()` — Uploads files, opens EventSource to `/negotiate`, parses SSE events
+- `runMockNegotiation()` — Pre-scripted 4-turn debate on `setInterval` (2.4s per turn)
+- Auto-fallback: if SSE connection fails, automatically switches to mock mode
+- `Ctrl+M` keyboard shortcut toggles mock mode
 
-**Stage3D.jsx** — 3D scene:
-- React Three Fiber `<Canvas>`
-- Dark void with stars (`<Stars>`)
-- Floating platform with glowing ring
-- Two `<AgentOrb>` instances (left/right)
-- `<OrbitControls>` with auto-rotation
+**Sidebar.jsx** — Tabbed control panel:
+- **Setup tab**: FileManager, role input, proposal textarea, INITIATE DEBATE button
+- **Dialogue tab**: Live streaming transcript with loading/empty/message states
+- **History tab**: Opens stored MongoDB records
+- Mock mode toggle in header
+- Cyber-grid background pattern with cyan accent glow
 
-**AgentOrb.jsx** — Animated sphere:
-- Icosahedron geometry with emissive material
-- Outer glow sphere (transparent)
-- Point light for dynamic illumination
-- `useFrame` animation:
-  - Scale: 1.3x when active, 0.85x when idle
-  - Emissive intensity pulses when speaking
-  - Light intensity spikes to 5.0 when active
-  - Floating motion (sine wave on Y-axis)
-  - Merges to center + gold color on accord
+**Scene.jsx** — 3D WebGL stage:
+- React Three Fiber `<Canvas>` with fixed `PerspectiveCamera` at `[0, 3.5, 7.5]`
+- `<Stars>` background (2500 count, radius 45)
+- `ParticleField` — 350 ambient cyan particles with slow rotation (additive blending)
+- Two `<AgentOrb>` instances at fixed positions: `[-2.5, 0.5, 0]` (proxy) and `[2.5, 0.5, 0]` (challenger)
+- `<OrbitControls>` with manual zoom (no auto-rotate), clamped polar angle
+- Dual directional lighting (white key + cyan fill)
 
-**LiveTranscript.jsx** — Debate log:
-- Scrolling sidebar with color-coded entries
-- Auto-scrolls to latest turn
-- Shows speaker name, color, timestamp, text
+**AgentOrb.jsx** — Animated agent sphere:
+- Minimalist sphere (radius 0.32) with `MeshStandardMaterial` (subtle emissive glow)
+- `WaveRing` component — Dual wavy glow rings that always face the camera:
+  - 180-segment `BufferGeometry` with sine-wave deformation (primary + secondary waves)
+  - 3 layered `lineLoop` meshes (sharp core, medium glow, outer soft glow)
+  - Additive blending, opacity dampened in/out based on active state
+  - Two rings offset by `Math.PI` for continuous visual movement
+- Active state: subtle breathing scale (1.0 +/- 0.08), emissive intensity increase, rings appear
+- Idle state: gentle floating sine wave, emissive fades to near-zero, rings fade out
+- `Html` label from `@react-three/drei` — agent name + "Speaking" indicator
 
-**AccordLedger.jsx** — Final overlay:
-- Glassmorphism modal with gold accent
-- Displays accord title + summary
-- Metrics: 4 turns, 2 agents, 1 accord
-- "ACKNOWLEDGE ACCORD" button
+**DecisionLedger.jsx** — Golden accord modal:
+- Two view modes: Executive Overview and Audit Transcript
+- **Executive Overview**: Policy summary, stacked resource allocation bar chart, governance guarantees checklist, resilience score (progress bar), fairness score (progress bar), mini consensus trail
+- **Audit Transcript**: Full dialogue log with turn numbers and color-coded speakers
+- **PDF Export**: `jsPDF` generates a multi-page A4 document with header banner, scenario mandate, policy accord, metrics, and full transcript
+- **MongoDB Auto-Save**: `POST` to `localhost:5000/api/history` with base64 PDF + metadata (auto-triggers on accord, also on manual download)
+- **Copy to Clipboard**: Copies accord title, summary, and scores
 
-**mockData.js** — Offline demo:
-- Pre-scripted 4-turn debate
-- Realistic content about R&D budget cuts
-- Final accord with specific terms
-- Plays automatically in mock mode
+**FileManager.jsx** — Document manager:
+- Drag & drop upload zone
+- Supports PDF, TXT, CSV, Excel, Word, JSON
+- File list with search, size display, and type-specific icons
+- Actions per file: View preview, Open in new tab, Share/copy link, Delete
+- PDF viewer modal (inline `<object>` / `<iframe>`)
+- Text file viewer modal with monospace pre-formatted display
+- Toast notifications for upload/delete/share actions
+
+---
+
+## Features
+
+- **3D WebGL Stage** — React Three Fiber with starfield, ambient particle cloud, and dual-agent orbs
+- **Wavy Glow Rings** — Camera-facing animated rings with sine-wave deformation and additive blending
+- **Real-Time SSE Streaming** — Backend streams debate turns to frontend with zero latency
+- **Live Web Search** — Challenger uses Serper API to fact-check claims against real-world data
+- **Multi-Format Document Upload** — PDF, TXT, CSV, Excel, Word, JSON with preview and sharing
+- **Decision Ledger** — Full audit dashboard with resilience/fairness scores and allocation charts
+- **PDF Export** — Professional A4 document generation via jsPDF with multi-page support
+- **MongoDB Persistence** — Auto-saves accord PDFs to MongoDB history server
+- **Mock Mode** — Pre-scripted debate for offline demos (Ctrl+M or sidebar toggle)
+- **Auto-Fallback** — Automatically switches to mock mode if backend is unreachable
+- **Tabbed Sidebar** — Setup, Dialogue, and History tabs in a cyber-themed control panel
+- **Clipboard Copy** — One-click accord summary copy
+
+---
+
+## Tech Stack
+
+### Backend
+| Package | Version | Purpose |
+|---------|---------|---------|
+| Python | 3.10+ | Runtime |
+| FastAPI | 0.115.6 | Web framework |
+| Uvicorn | 0.34.0 | ASGI server |
+| OpenAI SDK | >=1.58.0 | GPT-4o agent reasoning |
+| httpx | >=0.28.0 | Async HTTP (Serper API) |
+| PyPDF2 | >=3.0.0 | PDF text extraction |
+| BeautifulSoup4 | >=4.12.0 | HTML parsing |
+| python-dotenv | 1.0.1 | Environment management |
+
+### Frontend
+| Package | Version | Purpose |
+|---------|---------|---------|
+| React | 18 | UI framework |
+| Vite | 5 | Build tool |
+| Tailwind CSS | 4 | Utility-first CSS |
+| React Three Fiber | 8 | React renderer for Three.js |
+| @react-three/drei | 9 | R3F helpers (Html, Stars, OrbitControls) |
+| three | 0.163 | 3D graphics library |
+| axios | 1.x | HTTP client (uploads, MongoDB) |
+| jsPDF | 4.x | PDF generation |
+| lucide-react | 0.359 | Icon library |
 
 ---
 
@@ -342,75 +370,68 @@ Agent Accord-v2.0/
 
 ### Port 8000 Already in Use
 ```powershell
-# Find the process using port 8000
 netstat -ano | findstr :8000
-
-# Kill the process (replace <PID> with the actual PID)
 taskkill /F /PID <PID>
 ```
 
 ### Port 5173 Already in Use
 ```powershell
-# Find the process using port 5173
 netstat -ano | findstr :5173
-
-# Kill the process
 taskkill /F /PID <PID>
 ```
 
 ### Frontend Can't Connect to Backend
-1. Ensure backend is running on port 8000:
-   ```powershell
-   curl http://localhost:8000/health
-   ```
-2. Check CORS settings in `backend/main.py` (already configured for localhost:5173)
-3. Verify no firewall is blocking the connection
+1. Ensure backend is running: `curl http://localhost:8000/health`
+2. CORS is configured for `localhost:5173` in `main.py`
+3. If backend is down, the app auto-falls back to mock mode
 
 ### API Key Errors
 ```
 CRITICAL ERROR: OPENAI_API_KEY is missing in .env file.
 ```
-- Ensure `backend/.env` exists and contains valid keys
-- Check for typos in the key names
-- Verify keys are not wrapped in quotes
+- Ensure `backend/.env` exists with valid keys (no quotes around values)
 
-### Document Upload Fails
-- Only PDF and TXT files are supported
-- Ensure file is not corrupted
-- Check file size (no hard limit, but very large files may timeout)
-
-### Mock Mode Not Working
-- Press `Ctrl+M` to toggle (case-sensitive)
-- Look for "Mock Mode Active" indicator in bottom-left of setup modal
-- File upload is optional in mock mode
-- Mock mode bypasses backend entirely
+### MongoDB History Not Saving
+- The DecisionLedger tries to POST to `http://localhost:5000/api/history`
+- If the MongoDB server is not running, PDF download and clipboard copy still work
+- Check browser console for the specific error
 
 ### 3D Stage Not Rendering
-- Ensure WebGL is supported in your browser
-- Try Chrome, Firefox, or Edge (Safari may have issues)
-- Check browser console for errors (F12 → Console)
+- Ensure WebGL is supported (try Chrome, Firefox, or Edge)
+- Check browser console for errors (F12)
 - Update graphics drivers if needed
 
-### SSE Connection Drops
-- Check backend logs for errors
-- Ensure API keys are valid (if in live mode)
-- Verify network stability
-- Refresh the page and restart the debate
+### Build Fails with "jspdf" Missing
+```powershell
+cd frontend
+npm install jspdf
+```
 
 ---
 
 ## Development
 
-### Backend Development
-
-#### Run with Auto-Reload
+### Backend with Auto-Reload
 ```powershell
 cd backend
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-#### Test API Endpoints
+### Frontend with Hot Reload
 ```powershell
+cd frontend
+npm run dev
+```
+
+### Production Build
+```powershell
+cd frontend
+npm run build
+```
+Output in `frontend/dist/`
+
+### Test API Endpoints
+```bash
 # Health check
 curl http://localhost:8000/health
 
@@ -421,90 +442,8 @@ curl -X POST http://localhost:8000/upload -F "file=@test.txt"
 curl -N "http://localhost:8000/negotiate?role=CEO&prompt=Test&file_path=uploads/session_doc.txt"
 ```
 
-### Frontend Development
-
-#### Run Dev Server with Hot Reload
-```powershell
-cd frontend
-npm run dev
-```
-
-#### Build for Production
-```powershell
-cd frontend
-npm run build
-```
-
-Output will be in `frontend/dist/`
-
-#### Preview Production Build
-```powershell
-cd frontend
-npm run preview
-```
-
----
-
-## Features
-
-✅ **3D WebGL Stage** — React Three Fiber with atmospheric void, stars, and floating platform  
-✅ **Two Animated Orbs** — Blue (proxy) and green (challenger) with pulse/scale/glow effects  
-✅ **Real-Time SSE Streaming** — Backend streams debate turns to frontend instantly  
-✅ **Live Web Search** — Challenger uses Serper API to fact-check claims against real-world data  
-✅ **PDF/TXT Ingestion** — Upload internal documents for RAG-style context  
-✅ **Mock Mode** — Pre-scripted debate for offline demos (Ctrl+M)  
-✅ **Gold Merge Animation** — Orbs merge into gold sphere on accord  
-✅ **Glassmorphism UI** — Modern dark-mode design with Tailwind CSS  
-✅ **Auto-Rotating Camera** — Cinematic orbit controls for hands-free viewing  
-✅ **Live Transcript** — Color-coded scrolling log of debate turns  
-✅ **Accord Ledger** — Final compromise overlay with metrics  
-
----
-
-## Tech Stack
-
-### Backend
-- **Python 3.10+**
-- **FastAPI** — Web framework
-- **Uvicorn** — ASGI server
-- **OpenAI API** — GPT-4o agent reasoning
-- **Serper API** — Live Google Search
-- **httpx** — Async HTTP client
-- **PyPDF2** — PDF text extraction
-- **BeautifulSoup4** — HTML parsing
-- **python-dotenv** — Environment management
-
-### Frontend
-- **React 19** — UI framework
-- **Vite 8** — Build tool
-- **Tailwind CSS 4** — Utility-first CSS
-- **React Three Fiber** — React renderer for Three.js
-- **@react-three/drei** — R3F helpers
-- **three** — 3D graphics library
-- **lucide-react** — Icon library
-
----
-
-## Credits
-
-Built for hackathon demos. Mock mode ensures flawless presentation even without API credits.
-
 ---
 
 ## License
 
-MIT License — Use freely for demos, hackathons, and learning.
-
----
-
-## Support
-
-For issues or questions:
-1. Check the Troubleshooting section above
-2. Review backend/frontend logs for errors
-3. Verify API keys are valid (if using live mode)
-4. Test mock mode first to isolate frontend vs backend issues
-
----
-
-**Ready to demo?** Start both servers and open http://localhost:5173 🚀
+MIT
