@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import {
   Award,
-  ShieldCheck,
-  FileCheck,
   CheckCircle2,
   Download,
   RotateCcw,
@@ -140,27 +138,12 @@ export default function DecisionLedger({ accord, prompt, chatLog, onReset }) {
     doc.text(summaryLines, margin, y)
     y += summaryLines.length * 5 + 8
 
-    // Section 3: Quantitative Ethics & Resilience Metrics
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(10)
-    doc.setTextColor(217, 119, 6)
-    doc.text('3. QUANTITATIVE ETHICS & RESILIENCE METRICS', margin, y)
-    y += 6
-
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9)
-    doc.setTextColor(51, 65, 85)
-    doc.text(`- Predictive Market Resilience Score: ${accord.resilience_score} / 10.0`, margin + 4, y)
-    y += 5
-    doc.text(`- Governance & Layoff Fairness Score: ${accord.fairness_score} / 10.0`, margin + 4, y)
-    y += 10
-
-    // Section 4: Negotiation Transcript
+    // Section 3: Negotiation Transcript
     checkPageOverflow(20)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(10)
     doc.setTextColor(217, 119, 6)
-    doc.text('4. MULTI-AGENT NEGOTIATION TRANSCRIPT', margin, y)
+    doc.text('3. MULTI-AGENT NEGOTIATION TRANSCRIPT', margin, y)
     y += 6
 
     if (chatLog && chatLog.length > 0) {
@@ -234,7 +217,7 @@ export default function DecisionLedger({ accord, prompt, chatLog, onReset }) {
   }
 
   const handleCopy = () => {
-    const textToCopy = `[AGENT ACCORD LEDGER]\nTitle: ${accord.title}\nSummary: ${accord.summary}\nResilience Score: ${accord.resilience_score}/10\nFairness Score: ${accord.fairness_score}/10`
+    const textToCopy = `[AGENT ACCORD LEDGER]\nTitle: ${accord.title}\nSummary: ${accord.summary}`
     navigator.clipboard.writeText(textToCopy)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
@@ -467,66 +450,8 @@ export default function DecisionLedger({ accord, prompt, chatLog, onReset }) {
                 </div>
               </div>
 
-              {/* RIGHT COLUMN: Resilience & Math Metrics + Mini Transcript (5 cols) */}
+              {/* RIGHT COLUMN: Mini Transcript (5 cols) */}
               <div className="lg:col-span-5 space-y-6">
-                {/* Metric Card 1: NumPy Resilience */}
-                <div className="bg-slate-950/70 p-5 rounded-2xl border border-cyan-500/30 relative overflow-hidden space-y-3 shadow-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs font-mono text-cyan-400 font-semibold">
-                      <ShieldCheck className="w-4 h-4" /> Predictive Resilience Score
-                    </div>
-                    <span className="text-[10px] font-mono text-cyan-500/80 uppercase">NumPy Engine</span>
-                  </div>
-
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-bold font-mono text-cyan-400 tracking-tight">
-                      {accord.resilience_score}
-                    </span>
-                    <span className="text-sm font-mono text-slate-500">/ 10.0</span>
-                  </div>
-
-                  {/* Score Progress Bar */}
-                  <div className="h-2 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-800">
-                    <div
-                      style={{ width: `${(accord.resilience_score / 10) * 100}%` }}
-                      className="h-full bg-linear-to-r from-cyan-500 to-emerald-400 rounded-full"
-                    />
-                  </div>
-
-                  <p className="text-[11px] text-slate-400 leading-normal">
-                    Tested against volatility vectors using NumPy matrix transformations (AI: 0.85, Quantum: 0.40, Biotech: 0.15).
-                  </p>
-                </div>
-
-                {/* Metric Card 2: Governance & Layoff Fairness */}
-                <div className="bg-slate-950/70 p-5 rounded-2xl border border-purple-500/30 relative overflow-hidden space-y-3 shadow-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs font-mono text-purple-400 font-semibold">
-                      <FileCheck className="w-4 h-4" /> Governance & Fairness Score
-                    </div>
-                    <span className="text-[10px] font-mono text-purple-500/80 uppercase">Ethics Matrix</span>
-                  </div>
-
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-bold font-mono text-purple-400 tracking-tight">
-                      {accord.fairness_score}
-                    </span>
-                    <span className="text-sm font-mono text-slate-500">/ 10.0</span>
-                  </div>
-
-                  {/* Score Progress Bar */}
-                  <div className="h-2 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-800">
-                    <div
-                      style={{ width: `${(accord.fairness_score / 10) * 100}%` }}
-                      className="h-full bg-linear-to-r from-purple-500 to-pink-500 rounded-full"
-                    />
-                  </div>
-
-                  <p className="text-[11px] text-slate-400 leading-normal">
-                    Evaluated by Ethics & Governance Officer to guarantee compliance with labor stability & workforce standards.
-                  </p>
-                </div>
-
                 {/* Mini Consensus Transcript Snapshot */}
                 <div className="bg-slate-950/70 p-4 rounded-2xl border border-slate-800 space-y-3">
                   <div className="flex items-center justify-between">
