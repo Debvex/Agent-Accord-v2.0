@@ -43,15 +43,17 @@ async def upload_document(file: UploadFile = File(...)):
 async def negotiate(
     role: str = Query(..., description="User's role (e.g., 'CEO of Apex Labs')"),
     prompt: str = Query(..., description="The proposal to debate"),
-    file_path: str = Query(..., description="Path to uploaded document")
+    file_path: str = Query(None, description="Path to uploaded document (optional)")
 ):
-    doc_path = Path(file_path)
-    if not doc_path.exists():
-        raise HTTPException(status_code=404, detail="Document not found")
+    document_text = ""
     
-    document_text = extract_pdf_text(str(doc_path))
+    if file_path:
+        doc_path = Path(file_path)
+        if doc_path.exists():
+            document_text = extract_pdf_text(str(doc_path))
+    
     if not document_text.strip():
-        raise HTTPException(status_code=400, detail="Could not extract text from document")
+        document_text = "No internal document provided. The debate will proceed based on general knowledge and the proposal alone."
     
     async def event_stream():
         conversation_history = []
