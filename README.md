@@ -2,8 +2,6 @@
 
 An autonomous AI governance platform where two AI agents engage in adversarial dialectic debate over high-stakes proposals in a cinematic 3D WebGL environment. One agent defends institutional authority using internal documents; the other challenges with live web search and ethical reasoning. They debate until reaching an auditable egalitarian compromise — exported as a PDF and persisted to MongoDB.
 
----
-
 ## Prerequisites
 
 ### Required Software
