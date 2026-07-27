@@ -6,8 +6,7 @@ from fastapi import FastAPI, UploadFile, File, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-from agents import extract_pdf_text, generate_agent_response, generate_challenger_response_with_search
-from tasks import DEBATE_TASKS
+from agents import extract_pdf_text, run_debate_with_agents
 
 app = FastAPI(title="AgentAccord v2.0")
 
@@ -56,51 +55,9 @@ async def negotiate(
         document_text = "No internal document provided. The debate will proceed based on general knowledge and the proposal alone."
     
     async def event_stream():
-        conversation_history = []
-        
-        for task in DEBATE_TASKS:
-            speaker = task["speaker"]
-            task_desc = task["description"]
-            
-            # Inject previous turn's actual text so agents know what they're responding to
-            if len(conversation_history) > 0:
-                last_turn = conversation_history[-1]
-                task_desc += f"\n\nTHE {last_turn['name'].upper()}'S LAST ARGUMENT:\n\"{last_turn['text']}\"\n\nYou MUST directly address and respond to the specific points above. Do NOT repeat your previous arguments."
-            
-            if speaker == "proxy":
-                response_text = await generate_agent_response(
-                    "proxy", role, document_text, prompt, conversation_history, task_desc
-                )
-            else:
-                response_text, search_results = await generate_challenger_response_with_search(
-                    role, document_text, prompt, conversation_history, task_desc
-                )
-            
-            event_data = {
-                "type": "turn",
-                "speaker": speaker,
-                "name": task["name"],
-                "color": task["color"],
-                "text": response_text
-            }
-            
-            yield f"data: {json.dumps(event_data)}\n\n"
-            
-            # Store raw conversation history with speaker info
-            conversation_history.append({
-                "speaker": speaker,
-                "name": task["name"],
-                "text": response_text
-            })
-            
+        async for event in run_debate_with_agents(prompt, role, document_text):
+            yield f"data: {json.dumps(event)}\n\n"
             await asyncio.sleep(0.5)
-        
-        accord_event = {
-            "type": "accord",
-            "title": "Egalitarian Policy Accord v1.0",
-            "summary": conversation_history[-1]["text"] if conversation_history else "Accord reached."
-        }
-        yield f"data: {json.dumps(accord_event)}\n\n"
     
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
